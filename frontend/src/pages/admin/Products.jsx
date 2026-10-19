@@ -1,53 +1,99 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { categoryAPI, productAPI } from '../../utils/api';
 
+// In-memory cache so navigating between pages does not re-fetch all products
+let cachedAdminProducts = null;
+let cachedCategories = null;
+
 const Products = () => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const [products, setProducts] = useState(() => cachedAdminProducts || []);
+  const [loading, setLoading] = useState(() => !cachedAdminProducts);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState(() => cachedCategories || []);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
 
+  // Handle updated or created product passed back from ProductForm navigation
+  useEffect(() => {
+    if (location.state?.updatedProduct) {
+      const updated = location.state.updatedProduct;
+      setProducts((prev) => {
+        const index = prev.findIndex((p) => p._id === updated._id);
+        let next;
+        if (index !== -1) {
+          next = [...prev];
+          next[index] = { ...next[index], ...updated };
+        } else {
+          next = [updated, ...prev];
+        }
+        cachedAdminProducts = next;
+        return next;
+      });
+      setLoading(false);
+      navigate(location.pathname, { replace: true, state: {} });
+      return;
+    }
+
+    if (location.state?.createdProduct) {
+      const created = location.state.createdProduct;
+      setProducts((prev) => {
+        const next = [created, ...prev.filter((p) => p._id !== created._id)];
+        cachedAdminProducts = next;
+        return next;
+      });
+      setLoading(false);
+      navigate(location.pathname, { replace: true, state: {} });
+      return;
+    }
+  }, [location.state, location.pathname, navigate]);
+
+  // Initial fetch only if cache is empty
   useEffect(() => {
     fetchCategories();
+    if (!cachedAdminProducts) {
+      fetchProducts();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => {
-    fetchProducts();
-  }, [selectedCategory, selectedSubcategory]);
-
   const fetchCategories = async () => {
+    if (cachedCategories) {
+      setCategories(cachedCategories);
+      return;
+    }
     try {
       const response = await categoryAPI.getAllCategories();
       if (response.success) {
-        setCategories(response.data || []);
+        const cats = response.data || [];
+        setCategories(cats);
+        cachedCategories = cats;
       }
     } catch (err) {
       console.error('Error fetching categories:', err);
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (isManualRefresh = false) => {
     try {
-      setLoading(true);
+      if (isManualRefresh && products.length > 0) {
+        setRefreshing(true);
+      } else if (products.length === 0) {
+        setLoading(true);
+      }
       setError(null);
-      const queryParams = { limit: 1000, all: 'true' };
-      if (selectedCategory) {
-        queryParams.category = selectedCategory;
-      }
-      if (selectedSubcategory) {
-        queryParams.subcategory = selectedSubcategory;
-      }
 
-      // Fetch all products (including inactive) for admin, with optional filters
-      const response = await productAPI.getAllProducts(queryParams);
-      console.log('Products API Response:', response);
+      // Fetch all products (including inactive) for admin
+      const response = await productAPI.getAllProducts({ limit: 1000, all: 'true' });
       if (response.success) {
         const productsList = response.data?.products || [];
-        console.log('Products found:', productsList.length);
         setProducts(productsList);
+        cachedAdminProducts = productsList;
         if (productsList.length === 0) {
           setError('No products found in database. Please add products first.');
         }
@@ -59,41 +105,80 @@ const Products = () => {
       setError(err.response?.data?.message || err.message || 'Failed to fetch products. Please check your connection.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  // Instant optimistic delete: removes row immediately without reloading all products
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this product?')) {
       return;
     }
 
+    const prevProducts = products;
+    const updated = products.filter((p) => p._id !== id);
+    setProducts(updated);
+    cachedAdminProducts = updated;
+
     try {
       await productAPI.deleteProduct(id);
-      fetchProducts();
     } catch (err) {
       alert('Failed to delete product: ' + err.message);
+      // Revert if API call fails
+      setProducts(prevProducts);
+      cachedAdminProducts = prevProducts;
     }
   };
 
+  // Instant optimistic active toggle: updates badge immediately without reloading all products
   const handleToggleActive = async (product) => {
+    const newStatus = !product.isActive;
+    const prevProducts = products;
+    const updated = products.map((p) =>
+      p._id === product._id ? { ...p, isActive: newStatus } : p
+    );
+    setProducts(updated);
+    cachedAdminProducts = updated;
+
     try {
       await productAPI.updateProduct(product._id, {
-        isActive: !product.isActive
+        isActive: newStatus,
       });
-      fetchProducts();
     } catch (err) {
       alert('Failed to update product: ' + err.message);
+      // Revert if API call fails
+      setProducts(prevProducts);
+      cachedAdminProducts = prevProducts;
     }
   };
+
+  // Instant client-side filtering without re-querying all products
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      if (selectedCategory) {
+        const productCatId = product.category?._id || product.category;
+        if (String(productCatId) !== String(selectedCategory)) {
+          return false;
+        }
+      }
+      if (selectedSubcategory) {
+        if (product.subcategory !== selectedSubcategory) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [products, selectedCategory, selectedSubcategory]);
 
   const selectedCategoryData = categories.find((cat) => cat._id === selectedCategory);
   const availableSubcategories = selectedCategoryData?.subcategories || [];
+
   const clearFilters = () => {
     setSelectedCategory('');
     setSelectedSubcategory('');
   };
 
-  if (loading) {
+  if (loading && products.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -111,18 +196,33 @@ const Products = () => {
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold text-brown-900 mb-2">Products</h1>
             <p className="text-brown-700">
-              {loading ? 'Loading...' : `Manage all products (${products.length} total)`}
+              {loading
+                ? 'Loading...'
+                : `Manage all products (${filteredProducts.length}${
+                    filteredProducts.length !== products.length ? ` of ${products.length}` : ' total'
+                  })`}
             </p>
           </div>
           <div className="flex gap-3">
             <button
-              onClick={fetchProducts}
-              className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-brown-200 text-brown-800 rounded-lg hover:bg-brown-50 hover:border-brown-300 font-medium shadow-sm transition-all"
+              onClick={() => fetchProducts(true)}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-brown-200 text-brown-800 rounded-lg hover:bg-brown-50 hover:border-brown-300 font-medium shadow-sm transition-all disabled:opacity-75"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <svg
+                className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
               </svg>
-              Refresh
+              {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
             <Link
               to="/admin/products/new"
@@ -200,7 +300,7 @@ const Products = () => {
                 <p className="font-semibold mb-1">Error:</p>
                 <p className="text-sm">{error}</p>
                 <button
-                  onClick={fetchProducts}
+                  onClick={() => fetchProducts(true)}
                   className="mt-3 px-4 py-2 bg-brown-800 text-white rounded-lg hover:bg-brown-900 text-sm font-medium transition-colors"
                 >
                   Retry
@@ -213,31 +313,31 @@ const Products = () => {
         {/* Products Table */}
         <div className="bg-white rounded-xl shadow-sm border border-brown-200 overflow-hidden">
           <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-brown-100">
-                <thead className="bg-gradient-to-r from-brown-50 to-brown-100">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">
+            <table className="min-w-full divide-y divide-brown-100">
+              <thead className="bg-gradient-to-r from-brown-50 to-brown-100">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">
                     Product
                   </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">
                     Category
                   </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">
                     Price
                   </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">
                     Stock
                   </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">
                     Status
                   </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-brown-800 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-brown-800 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-                <tbody className="bg-white divide-y divide-brown-100">
-                {!loading && products.length === 0 ? (
+              <tbody className="bg-white divide-y divide-brown-100">
+                {!loading && filteredProducts.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center gap-4">
@@ -246,22 +346,35 @@ const Products = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                           </svg>
                         </div>
-                        <p className="text-brown-700 text-lg font-medium">No products found in database</p>
-                        <Link
-                          to="/admin/products/new"
-                          className="px-6 py-3 bg-brown-800 text-white rounded-lg hover:bg-brown-900 font-medium shadow-md hover:shadow-lg transition-all"
-                        >
-                          + Add Your First Product
-                        </Link>
+                        <p className="text-brown-700 text-lg font-medium">
+                          {selectedCategory || selectedSubcategory
+                            ? 'No products match the selected filters'
+                            : 'No products found in database'}
+                        </p>
+                        {selectedCategory || selectedSubcategory ? (
+                          <button
+                            onClick={clearFilters}
+                            className="px-6 py-2.5 bg-brown-100 text-brown-800 rounded-lg hover:bg-brown-200 font-medium transition-all"
+                          >
+                            Clear Filters
+                          </button>
+                        ) : (
+                          <Link
+                            to="/admin/products/new"
+                            className="px-6 py-3 bg-brown-800 text-white rounded-lg hover:bg-brown-900 font-medium shadow-md hover:shadow-lg transition-all"
+                          >
+                            + Add Your First Product
+                          </Link>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  products.map((product) => (
+                  filteredProducts.map((product) => (
                     <tr key={product._id} className="hover:bg-brown-50/40 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                            {product.images && product.images.length > 0 ? (
+                          {product.images && product.images.length > 0 ? (
                             <img
                               src={product.images[0]}
                               alt={product.name}
@@ -343,4 +456,3 @@ const Products = () => {
 };
 
 export default Products;
-

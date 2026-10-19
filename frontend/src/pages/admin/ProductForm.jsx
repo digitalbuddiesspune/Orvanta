@@ -354,14 +354,22 @@ const ProductForm = () => {
       delete submitData.customSpecFields;
 
       if (isEdit) {
-        await productAPI.updateProduct(id, submitData);
+        const response = await productAPI.updateProduct(id, submitData);
         alert('Product updated successfully!');
+        navigate('/admin/products', {
+          state: {
+            updatedProduct: response.data || { _id: id, ...submitData },
+          },
+        });
       } else {
-        await productAPI.createProduct(submitData);
+        const response = await productAPI.createProduct(submitData);
         alert('Product created successfully!');
+        navigate('/admin/products', {
+          state: {
+            createdProduct: response.data,
+          },
+        });
       }
-      
-      navigate('/admin/products');
     } catch (error) {
       alert('Failed to save product: ' + (error.response?.data?.message || error.message));
     } finally {
