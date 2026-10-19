@@ -104,19 +104,8 @@ const TermsOfService = () => {
                 <p className="font-semibold text-brown-900">ORVANTA ENTERPRISES PRIVATE LIMITED</p>
                 <p><span className="font-semibold">Brand:</span> Orvanta</p>
                 <p><span className="font-semibold">CIN:</span> U47711MH2026PTC476477</p>
-                <p><span className="font-semibold">GST:</span> </p>
-                <p>
-                  Email:{" "}
-                  <a className="text-brown-700 hover:text-brown-900 underline" href="mailto:wingfusionpvttld@gmail.com">
-                    wingfusionpvttld@gmail.com
-                  </a>
-                </p>
-                <p>
-                  Phone:{" "}
-                  <a className="text-brown-700 hover:text-brown-900 underline" href="tel:+917383821908">
-                    +91 7383821908
-                  </a>
-                </p>
+                <p><span className="font-semibold">GSTIN:</span> 27AAFCO4075P1ZT</p>
+
                 <p>
                   Address: 70 Heera Panna Prem Soc, 1st Floor , MHADA Layout, Andheri, Mumbai, Mumbai, Maharashtra,
                   India, 400053

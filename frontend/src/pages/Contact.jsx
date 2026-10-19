@@ -12,22 +12,11 @@ const Contact = () => {
             <div className="bg-brown-50 border border-brown-200 rounded-xl p-5">
               <h2 className="text-lg font-semibold text-brown-900 mb-3">Customer Support</h2>
               <div className="space-y-3 text-brown-800">
-                <p>
-                  <span className="font-semibold">Email:</span>{" "}
-                  <a className="text-brown-700 hover:text-brown-900 underline" href="mailto:wingfusionpvttld@gmail.com">
-                    wingfusionpvttld@gmail.com
-                  </a>
-                </p>
-                <p>
-                  <span className="font-semibold">Phone:</span>{" "}
-                  <a className="text-brown-700 hover:text-brown-900 underline" href="tel:+917383821908">
-                    +91 7383821908
-                  </a>
-                </p>
+
                 <p><span className="font-semibold">Website:</span> Orvanta</p>
                 <p><span className="font-semibold">Company:</span> ORVANTA ENTERPRISES PRIVATE LIMITED</p>
                 <p><span className="font-semibold">CIN:</span> U47711MH2026PTC476477</p>
-                <p><span className="font-semibold">GST:</span> </p>
+                <p><span className="font-semibold">GSTIN:</span> 27AAFCO4075P1ZT</p>
               </div>
             </div>
 
