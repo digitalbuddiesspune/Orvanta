@@ -66,6 +66,11 @@ export const INVOICE_EXPORT_CSS = `
 }
 .invoice-export-meta p { margin: 4px 0; }
 .invoice-export-meta strong { color: #111827; font-weight: 600; }
+.invoice-export-address {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
 .invoice-export-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

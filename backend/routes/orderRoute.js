@@ -6,6 +6,7 @@ import {
   getOrderById,
   cancelOrder,
   getAllOrders,
+  createAdminOrder,
   updateOrderStatus,
 } from "../controller/orderController.js";
 
@@ -17,6 +18,7 @@ router.put("/:orderId/cancel", authenticate, cancelOrder);
 router.get("/:orderId", authenticate, getOrderById);
 
 router.get("/admin/all", authenticateAdmin, getAllOrders);
+router.post("/admin/create", authenticateAdmin, createAdminOrder);
 router.put("/admin/:orderId/status", authenticateAdmin, updateOrderStatus);
 
 export default router;

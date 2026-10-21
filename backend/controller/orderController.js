@@ -1,21 +1,63 @@
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import Order from "../models/Order.js";
 import Cart from "../models/cart.js";
 import Product from "../models/Product.js";
+import User from "../models/user.js";
+
+const isObjectId = (value) => /^[a-fA-F0-9]{24}$/.test(String(value || ""));
+
+const hasCompleteShippingAddress = (shippingAddress) =>
+  Boolean(
+    shippingAddress?.fullName &&
+      shippingAddress?.phone &&
+      shippingAddress?.addressLine1 &&
+      shippingAddress?.city &&
+      shippingAddress?.state &&
+      shippingAddress?.pincode
+  );
+
+const resolveCustomerUser = async ({ userId, customer }) => {
+  if (isObjectId(userId)) {
+    const existing = await User.findById(userId);
+    if (existing) return existing;
+  }
+
+  const email = customer?.email?.trim()?.toLowerCase();
+  const phone = customer?.phone?.trim();
+  const name = customer?.name?.trim() || "Walk-in Customer";
+
+  if (email) {
+    const byEmail = await User.findOne({ email });
+    if (byEmail) return byEmail;
+  }
+
+  if (phone) {
+    const byPhone = await User.findOne({ phone });
+    if (byPhone) return byPhone;
+  }
+
+  const generatedEmail =
+    email ||
+    `walkin.${(phone || "guest").replace(/\D/g, "") || "guest"}.${Date.now()}@orvanta.local`;
+
+  const hashedPassword = await bcrypt.hash(crypto.randomBytes(16).toString("hex"), 10);
+
+  return User.create({
+    name,
+    email: generatedEmail,
+    phone: phone || "0000000000",
+    password: hashedPassword,
+    role: "user",
+  });
+};
 
 export const placeOrder = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { shippingAddress, paymentMethod = "COD", note } = req.body;
 
-    if (
-      !shippingAddress ||
-      !shippingAddress.fullName ||
-      !shippingAddress.phone ||
-      !shippingAddress.addressLine1 ||
-      !shippingAddress.city ||
-      !shippingAddress.state ||
-      !shippingAddress.pincode
-    ) {
+    if (!hasCompleteShippingAddress(shippingAddress)) {
       return res.status(400).json({
         success: false,
         message: "Complete shipping address is required",
@@ -216,6 +258,131 @@ export const cancelOrder = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to cancel order",
+      error: error.message,
+    });
+  }
+};
+
+export const createAdminOrder = async (req, res) => {
+  try {
+    const {
+      userId,
+      customer,
+      items,
+      shippingAddress,
+      paymentMethod = "COD",
+      shippingCost = 0,
+      gstAmount = 0,
+      gstRate = 18,
+      note,
+      invoiceDate,
+    } = req.body;
+
+    if (!hasCompleteShippingAddress(shippingAddress)) {
+      return res.status(400).json({
+        success: false,
+        message: "Complete customer address is required to create the order",
+      });
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Add at least one product",
+      });
+    }
+
+    const orderItems = [];
+    let itemsTotal = 0;
+
+    for (const item of items) {
+      const productId = item.productId || item.product;
+      if (!isObjectId(productId)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid product on the bill${item.name ? `: ${item.name}` : ""}`,
+        });
+      }
+
+      const product = await Product.findById(productId);
+      if (!product) {
+        return res.status(400).json({
+          success: false,
+          message: `Product not found${item.name ? `: ${item.name}` : ""}`,
+        });
+      }
+
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const price = Math.max(0, Number(item.price) || 0);
+      const itemTotal = price * quantity;
+      itemsTotal += itemTotal;
+
+      orderItems.push({
+        product: product._id,
+        name: item.name || product.name,
+        image: item.image || product.images?.[0] || "",
+        price,
+        quantity,
+        itemTotal,
+      });
+    }
+
+    const shipping = Math.max(0, Number(shippingCost) || 0);
+    const gst = Math.max(0, Number(gstAmount) || 0);
+    const totalAmount = itemsTotal + shipping + gst;
+    const allowedPayments = ["COD", "Online", "Manual"];
+    const method = allowedPayments.includes(paymentMethod) ? paymentMethod : "COD";
+
+    const user = await resolveCustomerUser({
+      userId,
+      customer: {
+        name: customer?.name || shippingAddress.fullName,
+        email: customer?.email,
+        phone: customer?.phone || shippingAddress.phone,
+      },
+    });
+
+    const orderPayload = {
+      user: user._id,
+      items: orderItems,
+      shippingAddress,
+      paymentMethod: method,
+      itemsTotal,
+      shippingCost: shipping,
+      gstAmount: gst,
+      gstRate: gst > 0 ? Number(gstRate) || 18 : 0,
+      totalAmount,
+      status: "Confirmed",
+      note: note || "Created from admin invoice generator",
+    };
+
+    if (invoiceDate) {
+      const dated = new Date(`${invoiceDate}T12:00:00`);
+      if (!Number.isNaN(dated.getTime())) {
+        orderPayload.createdAt = dated;
+        orderPayload.updatedAt = dated;
+      }
+    }
+
+    const order = await Order.create(orderPayload);
+    const populated = await Order.findById(order._id)
+      .populate("user", "name email phone")
+      .populate({
+        path: "items.product",
+        model: "Product",
+        select: "name slug images price",
+      });
+
+    res.status(201).json({
+      success: true,
+      message: "Order created successfully",
+      data: populated,
+    });
+  } catch (error) {
+    console.error("Create admin order error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create order",
       error: error.message,
     });
   }

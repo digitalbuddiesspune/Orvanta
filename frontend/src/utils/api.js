@@ -208,6 +208,12 @@ export const orderAPI = {
     return response.data;
   },
 
+  // Admin only — create an order from the invoice generator
+  createAdminOrder: async (orderData) => {
+    const response = await api.post('/orders/admin/create', orderData);
+    return response.data;
+  },
+
   // Admin only
   updateOrderStatusAdmin: async (orderId, status) => {
     const response = await api.put(`/orders/admin/${orderId}/status`, { status });

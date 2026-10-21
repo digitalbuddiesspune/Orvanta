@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   FiUser,
   FiSearch,
@@ -10,7 +11,6 @@ import {
   FiMail,
   FiPhone,
   FiRefreshCw,
-  FiPrinter,
   FiDownload,
   FiCalendar,
   FiUserPlus,
@@ -21,9 +21,11 @@ import {
 } from 'react-icons/fi';
 import { productAPI, categoryAPI, userAPI, orderAPI } from '../../utils/api';
 import Invoice from '../../components/Invoice';
-import { downloadInvoicePdf, printInvoice } from '../../utils/downloadInvoicePdf';
+import { downloadInvoicePdf } from '../../utils/downloadInvoicePdf';
 import {
   buildAdminInvoicePayload,
+  getCustomerShippingAddress,
+  isCompleteShippingAddress,
   GST_RATE,
   FREE_SHIPPING_THRESHOLD,
   DEFAULT_SHIPPING_CHARGE,
@@ -87,6 +89,9 @@ const AdminInvoiceGenerator = () => {
   const [downloading, setDownloading] = useState(false);
   const [exportKey, setExportKey] = useState(0);
   const [exportAction, setExportAction] = useState(null);
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState(null);
+  const [createSuccess, setCreateSuccess] = useState('');
   const invoiceRef = useRef(null);
 
   // Load Categories, Products, Users, and Past Orders
@@ -341,7 +346,32 @@ const AdminInvoiceGenerator = () => {
       total,
       invoiceDate,
       paymentMethod,
+      createdOrder,
     });
+
+  const billFingerprint = useMemo(
+    () =>
+      JSON.stringify({
+        customerId: selectedCustomer?.id || '',
+        items: lineItems.map((i) => ({
+          id: i.productId,
+          qty: i.quantity,
+          price: i.price,
+        })),
+        paymentMethod,
+        includeGst,
+        shipping,
+        invoiceDate,
+      }),
+    [selectedCustomer?.id, lineItems, paymentMethod, includeGst, shipping, invoiceDate]
+  );
+
+  useEffect(() => {
+    if (createdOrder && createdOrder._billFingerprint !== billFingerprint) {
+      setCreatedOrder(null);
+      setCreateSuccess('');
+    }
+  }, [billFingerprint, createdOrder]);
 
   const queueExport = (action, payload) => {
     setInvoiceData(payload);
@@ -349,16 +379,74 @@ const AdminInvoiceGenerator = () => {
     setExportKey((k) => k + 1);
   };
 
-  const handlePrint = () => {
-    const result = getInvoicePayload();
-    if (result.error) {
-      alert(result.error);
+  const handleCreateOrder = async () => {
+    if (!selectedCustomer) {
+      alert('Please select or add a customer');
       return;
     }
-    queueExport('print', result.payload);
+    if (!lineItems.length) {
+      alert('Please add at least one product');
+      return;
+    }
+
+    const shippingAddress = getCustomerShippingAddress(selectedCustomer);
+    if (!isCompleteShippingAddress(shippingAddress)) {
+      alert(
+        'Complete customer address is required (name, phone, address, city, state, pincode). Use + Add New if the selected customer is missing address details.'
+      );
+      return;
+    }
+
+    setCreatingOrder(true);
+    setError('');
+    setCreateSuccess('');
+
+    try {
+      const response = await orderAPI.createAdminOrder({
+        userId: selectedCustomer.isManual ? undefined : selectedCustomer.id,
+        customer: {
+          name: selectedCustomer.name,
+          email: selectedCustomer.email,
+          phone: selectedCustomer.phone,
+        },
+        shippingAddress,
+        items: lineItems.map((item) => ({
+          productId: item.productId,
+          name: item.name || item.product?.name,
+          image: item.product?.images?.[0] || item.product?.image || '',
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        paymentMethod,
+        shippingCost: shipping,
+        gstAmount: gst,
+        gstRate: GST_RATE,
+        invoiceDate,
+      });
+
+      if (!response?.success || !response.data) {
+        throw new Error(response?.message || 'Failed to create order');
+      }
+
+      const saved = { ...response.data, _billFingerprint: billFingerprint };
+      setCreatedOrder(saved);
+      setOrders((prev) => [response.data, ...prev]);
+      setCreateSuccess(
+        `Order ${response.data.orderNumber || ''} saved. It will now appear in Orders.`
+      );
+    } catch (err) {
+      console.error('Create admin order error:', err);
+      alert(err.response?.data?.message || err.message || 'Failed to create order');
+    } finally {
+      setCreatingOrder(false);
+    }
   };
 
   const handleDownload = () => {
+    if (!createdOrder) {
+      alert('Create the order first, then download the PDF.');
+      return;
+    }
     const result = getInvoicePayload();
     if (result.error) {
       alert(result.error);
@@ -375,11 +463,6 @@ const AdminInvoiceGenerator = () => {
     const run = async () => {
       await new Promise((r) => setTimeout(r, 800));
       if (cancelled || !invoiceRef.current) return;
-
-      if (exportAction === 'print') {
-        printInvoice(invoiceRef.current, `Invoice-${invoiceData.invoiceNumber}`);
-        return;
-      }
 
       if (exportAction === 'download') {
         setDownloading(true);
@@ -424,6 +507,8 @@ const AdminInvoiceGenerator = () => {
     setInvoiceDate(todayDateInputValue());
     setInvoiceData(null);
     setShowPreview(false);
+    setCreatedOrder(null);
+    setCreateSuccess('');
   };
 
   return (
@@ -438,7 +523,7 @@ const AdminInvoiceGenerator = () => {
             Invoice / Bill Generator
           </h1>
           <p className="text-sm text-brown-600 mt-1">
-            Create, customize, print, and download official tax invoices for Orvanta customers.
+            Create an order, then download the official tax invoice for Orvanta customers.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -1036,25 +1121,39 @@ const AdminInvoiceGenerator = () => {
               </div>
 
               {/* Actions */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  disabled={!canSubmit}
-                  className="w-full py-3 bg-white border-2 border-brown-800 text-brown-900 rounded-xl font-bold hover:bg-brown-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-sm text-sm"
-                >
-                  <FiPrinter className="w-4 h-4" />
-                  Print Bill
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={!canSubmit || downloading}
-                  className="w-full py-3 bg-gradient-to-r from-brown-800 to-brown-900 text-white rounded-xl font-bold hover:from-brown-700 hover:to-brown-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-md text-sm"
-                >
-                  <FiDownload className="w-4 h-4" />
-                  {downloading ? 'Creating PDF...' : 'Download PDF'}
-                </button>
+              <div className="space-y-3 pt-2">
+                {!createdOrder ? (
+                  <button
+                    type="button"
+                    onClick={handleCreateOrder}
+                    disabled={!canSubmit || creatingOrder}
+                    className="w-full py-3 bg-gradient-to-r from-brown-800 to-brown-900 text-white rounded-xl font-bold hover:from-brown-700 hover:to-brown-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-md text-sm"
+                  >
+                    <FiCheck className="w-4 h-4" />
+                    {creatingOrder ? 'Creating Order...' : 'Create this Order'}
+                  </button>
+                ) : (
+                  <>
+                    <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-green-800 text-xs font-medium text-center space-y-1">
+                      <p>{createSuccess || 'Order saved successfully.'}</p>
+                      <Link
+                        to="/admin/orders"
+                        className="inline-block font-bold underline hover:text-green-950"
+                      >
+                        View in Orders
+                      </Link>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleDownload}
+                      disabled={downloading}
+                      className="w-full py-3 bg-gradient-to-r from-brown-800 to-brown-900 text-white rounded-xl font-bold hover:from-brown-700 hover:to-brown-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-md text-sm"
+                    >
+                      <FiDownload className="w-4 h-4" />
+                      {downloading ? 'Creating PDF...' : 'Download PDF'}
+                    </button>
+                  </>
+                )}
               </div>
 
               {canSubmit && (
@@ -1070,7 +1169,7 @@ const AdminInvoiceGenerator = () => {
 
               {!canSubmit && (
                 <p className="text-[11px] text-center text-brown-500">
-                  Select a customer and add at least one product to generate invoice
+                  Select a customer and add at least one product to create this order
                 </p>
               )}
             </div>
@@ -1098,7 +1197,6 @@ const AdminInvoiceGenerator = () => {
             user={getInvoicePayload().payload?.user}
             totals={getInvoicePayload().payload?.totals}
             invoiceNumber={getInvoicePayload().payload?.invoiceNumber}
-            onPrint={handlePrint}
           />
         </section>
       )}

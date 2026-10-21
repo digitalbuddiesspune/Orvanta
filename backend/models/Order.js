@@ -45,11 +45,13 @@ const orderSchema = new mongoose.Schema(
     shippingAddress: shippingAddressSchema,
     paymentMethod: {
       type: String,
-      enum: ["COD", "Online"],
+      enum: ["COD", "Online", "Manual"],
       default: "COD",
     },
     itemsTotal: { type: Number, required: true },
     shippingCost: { type: Number, default: 0 },
+    gstAmount: { type: Number, default: 0 },
+    gstRate: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
     status: {
       type: String,

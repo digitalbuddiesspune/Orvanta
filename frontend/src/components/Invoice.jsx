@@ -35,10 +35,10 @@ const Invoice = ({
     }, 0) || 0;
 
   const subtotal = totalsOverride?.subtotal ?? order.itemsTotal ?? lineSubtotal ?? order.totalAmount ?? 0;
-  const gst = totalsOverride?.gst ?? 0;
+  const gst = totalsOverride?.gst ?? order.gstAmount ?? 0;
   const shipping = totalsOverride?.shipping ?? order.shippingCost ?? 0;
   const total = totalsOverride?.total ?? order.totalAmount ?? (subtotal + gst + shipping);
-  const gstRate = totalsOverride?.gstRate ?? 18;
+  const gstRate = totalsOverride?.gstRate ?? order.gstRate ?? 18;
   const shippingAddress = order.shippingAddress || {};
 
   const formattedDate = orderDate.toLocaleDateString('en-IN', {
@@ -87,13 +87,6 @@ const Invoice = ({
               </p>
             </div>
           </div>
-          <div className="invoice-export-meta">
-            <h2>TAX INVOICE</h2>
-            <p><strong>Invoice / Order #:</strong> {orderNumber}</p>
-            <p><strong>Date:</strong> {formattedDate}</p>
-            <p><strong>Payment:</strong> {paymentLabel}</p>
-            <p><strong>Status:</strong> {order.status || 'Confirmed'}</p>
-          </div>
         </div>
 
         <div className="invoice-export-grid">
@@ -109,18 +102,30 @@ const Invoice = ({
               {(shippingAddress.phone || user?.phone) && (
                 <p><strong>Phone:</strong> {shippingAddress.phone || user?.phone}</p>
               )}
+              {(shippingAddress.addressLine1 ||
+                shippingAddress.addressLine2 ||
+                shippingAddress.city ||
+                shippingAddress.state ||
+                shippingAddress.pincode) && (
+                <div className="invoice-export-address">
+                  {shippingAddress.addressLine1 && <p>{shippingAddress.addressLine1}</p>}
+                  {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
+                  <p>
+                    {[shippingAddress.city, shippingAddress.state].filter(Boolean).join(', ')}
+                    {shippingAddress.pincode ? ` - ${shippingAddress.pincode}` : ''}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
           <div>
-            <h3 className="invoice-export-section-title">Shipping / Delivery Address</h3>
+            <h3 className="invoice-export-section-title">Tax Invoice</h3>
             <div className="invoice-export-section-body">
-              {shippingAddress.addressLine1 && <p>{shippingAddress.addressLine1}</p>}
-              {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
-              <p>
-                {[shippingAddress.city, shippingAddress.state].filter(Boolean).join(', ')}
-                {shippingAddress.pincode ? ` - ${shippingAddress.pincode}` : ''}
-              </p>
+              <p><strong>Invoice / Order #:</strong> {orderNumber}</p>
+              <p><strong>Date:</strong> {formattedDate}</p>
+              <p><strong>Payment:</strong> {paymentLabel}</p>
+              <p><strong>Status:</strong> {order.status || 'Confirmed'}</p>
             </div>
           </div>
         </div>
@@ -216,30 +221,10 @@ const Invoice = ({
             </div>
           </div>
 
-          <div className="text-left sm:text-right text-xs sm:text-sm text-brown-700 space-y-1">
-            <h2 className="text-xl sm:text-2xl font-heading font-black text-brown-900 tracking-wide mb-2">
-              TAX INVOICE
-            </h2>
-            <p>
-              <span className="font-semibold text-brown-900">Invoice #:</span> {orderNumber}
-            </p>
-            <p>
-              <span className="font-semibold text-brown-900">Date:</span> {formattedDate}
-            </p>
-            <p>
-              <span className="font-semibold text-brown-900">Payment:</span> {paymentLabel}
-            </p>
-            <p>
-              <span className="font-semibold text-brown-900">Status:</span>{' '}
-              <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
-                {order.status || 'Confirmed'}
-              </span>
-            </p>
-          </div>
         </div>
       </div>
 
-      {/* Customer & Address Info */}
+      {/* Customer & Tax Invoice */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
         <div className="p-4 bg-brown-50/60 rounded-xl border border-brown-100">
           <h3 className="text-xs font-bold text-brown-900 mb-2 uppercase tracking-wider">
@@ -261,19 +246,42 @@ const Invoice = ({
                 {shippingAddress.phone || user?.phone}
               </p>
             )}
+            {(shippingAddress.addressLine1 ||
+              shippingAddress.addressLine2 ||
+              shippingAddress.city ||
+              shippingAddress.state ||
+              shippingAddress.pincode) && (
+              <div className="pt-2 mt-1 border-t border-brown-200 space-y-0.5">
+                {shippingAddress.addressLine1 && <p>{shippingAddress.addressLine1}</p>}
+                {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
+                <p>
+                  {[shippingAddress.city, shippingAddress.state].filter(Boolean).join(', ')}
+                  {shippingAddress.pincode ? ` - ${shippingAddress.pincode}` : ''}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="p-4 bg-brown-50/60 rounded-xl border border-brown-100">
           <h3 className="text-xs font-bold text-brown-900 mb-2 uppercase tracking-wider">
-            Shipping Address
+            Tax Invoice
           </h3>
-          <div className="text-sm text-brown-700 space-y-0.5">
-            {shippingAddress.addressLine1 && <p>{shippingAddress.addressLine1}</p>}
-            {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
+          <div className="space-y-1 text-sm text-brown-700">
             <p>
-              {[shippingAddress.city, shippingAddress.state].filter(Boolean).join(', ')}
-              {shippingAddress.pincode ? ` - ${shippingAddress.pincode}` : ''}
+              <span className="font-semibold text-brown-800">Invoice / Order #:</span> {orderNumber}
+            </p>
+            <p>
+              <span className="font-semibold text-brown-800">Date:</span> {formattedDate}
+            </p>
+            <p>
+              <span className="font-semibold text-brown-800">Payment:</span> {paymentLabel}
+            </p>
+            <p>
+              <span className="font-semibold text-brown-800">Status:</span>{' '}
+              <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
+                {order.status || 'Confirmed'}
+              </span>
             </p>
           </div>
         </div>
