@@ -100,6 +100,15 @@ const AdminLayout = () => {
         </svg>
       )
     },
+    { 
+      path: '/admin/invoice-generator', 
+      label: 'Invoice Generator', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      )
+    },
   ];
 
   return (
@@ -125,8 +134,13 @@ const AdminLayout = () => {
                 )}
               </button>
               <div className="flex flex-col">
-                <Link to="/admin" className="text-xl font-heading font-bold text-brown-800">
-                  Orvanta Admin
+                <Link to="/admin" className="flex items-center gap-1.5 text-xl font-heading font-bold text-brown-800">
+                  <img
+                    src="/70f4061b-c1e8-4815-95db-8e8906944dfc-removebg-preview.png"
+                    alt="Orvanta Logo"
+                    className="w-8 h-8 object-contain"
+                  />
+                  <span>Orvanta Admin</span>
                 </Link>
               </div>
             </div>

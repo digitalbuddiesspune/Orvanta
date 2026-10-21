@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { orderAPI } from '../../utils/api';
+import Invoice from '../../components/Invoice';
+import { downloadInvoicePdf, printInvoice } from '../../utils/downloadInvoicePdf';
 
 const STATUS_OPTIONS = [
   'Pending',
@@ -32,8 +35,31 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updatingId, setUpdatingId] = useState('');
+  const [selectedOrderForInvoice, setSelectedOrderForInvoice] = useState(null);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const invoiceModalRef = useRef(null);
 
   const totalOrders = useMemo(() => orders.length, [orders]);
+
+  const handlePrintOrderInvoice = () => {
+    printInvoice(invoiceModalRef.current, `Tax Invoice - ${selectedOrderForInvoice?.orderNumber || 'Order'}`);
+  };
+
+  const handleDownloadOrderInvoice = async () => {
+    if (!invoiceModalRef.current || !selectedOrderForInvoice) return;
+    try {
+      setDownloadingInvoice(true);
+      const invoiceNum =
+        selectedOrderForInvoice.orderNumber ||
+        (selectedOrderForInvoice._id ? String(selectedOrderForInvoice._id).slice(-8).toUpperCase() : 'INVOICE');
+      await downloadInvoicePdf(invoiceModalRef.current, `Invoice-${invoiceNum}.pdf`);
+    } catch (err) {
+      console.error('Invoice PDF error:', err);
+      alert(`Failed to download PDF: ${err.message || 'Unknown error'}`);
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -101,12 +127,21 @@ const Orders = () => {
         <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold text-brown-900 mb-2">Orders</h1>
-            <p className="text-brown-700">Manage all store orders</p>
+            <p className="text-brown-700">Manage all store orders and generate customer invoices</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="px-4 py-2 bg-white border border-brown-200 rounded-lg shadow-sm text-sm text-brown-800">
               Total: <span className="font-semibold text-brown-900">{totalOrders}</span>
             </div>
+            <Link
+              to="/admin/invoice-generator"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brown-800 to-brown-900 text-white rounded-lg hover:from-brown-700 hover:to-brown-800 font-semibold shadow-sm transition-all"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Create Bill / Invoice
+            </Link>
             <button
               onClick={fetchOrders}
               className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-brown-200 text-brown-800 rounded-lg hover:bg-brown-50 hover:border-brown-300 font-medium shadow-sm transition-all"
@@ -159,6 +194,9 @@ const Orders = () => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">
                       Date
                     </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-brown-800 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-brown-100">
@@ -198,10 +236,115 @@ const Orders = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-brown-600">
                         {order.createdAt ? new Date(order.createdAt).toLocaleString() : '-'}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOrderForInvoice(order)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brown-300 bg-white hover:bg-brown-50 text-brown-900 font-medium text-xs shadow-sm transition-colors cursor-pointer"
+                          title="Generate / Print / Download Tax Invoice"
+                        >
+                          <svg className="w-4 h-4 text-brown-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Invoice
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Order Invoice Preview Modal */}
+        {selectedOrderForInvoice && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-brown-100 bg-brown-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-brown-900 text-white flex items-center justify-center">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-brown-900">
+                      Tax Invoice #{selectedOrderForInvoice.orderNumber || String(selectedOrderForInvoice._id).slice(-8).toUpperCase()}
+                    </h2>
+                    <p className="text-xs text-brown-600">
+                      Customer: {selectedOrderForInvoice.user?.name || selectedOrderForInvoice.shippingAddress?.fullName || 'Customer'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handlePrintOrderInvoice}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-brown-300 text-brown-800 hover:bg-brown-50 text-xs font-semibold shadow-xs cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Print
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadOrderInvoice}
+                    disabled={downloadingInvoice}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brown-900 text-white hover:bg-brown-800 disabled:opacity-50 text-xs font-semibold shadow-xs cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    {downloadingInvoice ? 'Downloading...' : 'Download PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOrderForInvoice(null)}
+                    className="p-1.5 text-brown-500 hover:text-brown-800 rounded-lg hover:bg-brown-100 cursor-pointer"
+                    aria-label="Close"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body - Scrollable Invoice Preview */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-brown-50/50">
+                <Invoice
+                  order={selectedOrderForInvoice}
+                  user={selectedOrderForInvoice.user}
+                  onPrint={handlePrintOrderInvoice}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Off-screen invoice for clean PDF export without modals / UI buttons */}
+        {selectedOrderForInvoice && (
+          <div
+            style={{
+              position: 'fixed',
+              left: '-9999px',
+              top: 0,
+              width: '800px',
+              zIndex: -1,
+              pointerEvents: 'none',
+              backgroundColor: '#ffffff',
+            }}
+          >
+            <div ref={invoiceModalRef}>
+              <Invoice
+                order={selectedOrderForInvoice}
+                user={selectedOrderForInvoice.user}
+                forExport={true}
+              />
             </div>
           </div>
         )}

@@ -148,10 +148,12 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* Company Info */}
           <div className="lg:col-span-1">
-            <NavLink to="/" className="inline-flex items-center gap-2.5 mb-3 group" onClick={scrollToTop}>
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/10 text-white flex items-center justify-center border border-white/20 group-hover:bg-white/20 transition-all duration-200">
-                <span className="font-heading font-black text-lg text-white tracking-wider">O</span>
-              </div>
+            <NavLink to="/" className="inline-flex items-center gap-1.5 mb-3 group" onClick={scrollToTop}>
+              <img
+                src="/70f4061b-c1e8-4815-95db-8e8906944dfc-removebg-preview.png"
+                alt="Orvanta Logo"
+                className="w-8 h-8 sm:w-9 sm:h-9 object-contain group-hover:scale-105 transition-all duration-200"
+              />
               <span className="font-heading font-bold text-2xl tracking-tight text-white">
                 Orvanta
               </span>
@@ -225,7 +227,48 @@ const Footer = () => {
               Get in Touch
             </h3>
             <ul className="space-y-3 text-sm text-brown-300">
-
+              <li className="flex items-start">
+                <svg
+                  className="w-5 h-5 mr-2 mt-0.5 text-brown-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+                <a
+                  href="mailto:orvantaprivatedlimited@gmail.com"
+                  className="hover:text-white transition-colors duration-200"
+                >
+                  orvantaprivatedlimited@gmail.com
+                </a>
+              </li>
+              <li className="flex items-start">
+                <svg
+                  className="w-5 h-5 mr-2 mt-0.5 text-brown-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                  />
+                </svg>
+                <a
+                  href="tel:+918356885200"
+                  className="hover:text-white transition-colors duration-200"
+                >
+                  +91 8356885200
+                </a>
+              </li>
               <li className="flex items-start">
                 <svg
                   className="w-5 h-5 mr-2 mt-0.5 text-brown-400 flex-shrink-0"
@@ -263,10 +306,7 @@ const Footer = () => {
                 ORVANTA ENTERPRISES PRIVATE LIMITED
               </p>
               <p className="text-xs text-brown-300 mt-1">
-                CIN: U47711MH2026PTC476477
-              </p>
-              <p className="text-xs text-brown-300 mt-1">
-                GSTIN: 27AAFCO4075P1ZT
+                CIN: U47711MH2026PTC476477 | GSTIN: 27AAFCO4075P1ZT
               </p>
               <p className="text-xs text-brown-400 mt-1">
                 © {new Date().getFullYear()} Orvanta. All rights reserved.

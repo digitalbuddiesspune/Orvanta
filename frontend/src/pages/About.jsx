@@ -44,7 +44,18 @@ const About = () => {
                 <p><span className="font-semibold">Brand:</span> Orvanta</p>
                 <p><span className="font-semibold">CIN:</span> U47711MH2026PTC476477</p>
                 <p><span className="font-semibold">GSTIN:</span> 27AAFCO4075P1ZT</p>
-
+                <p>
+                  Email:{" "}
+                  <a className="text-brown-700 hover:text-brown-900 underline" href="mailto:orvantaprivatedlimited@gmail.com">
+                    orvantaprivatedlimited@gmail.com
+                  </a>
+                </p>
+                <p>
+                  Phone:{" "}
+                  <a className="text-brown-700 hover:text-brown-900 underline" href="tel:+918356885200">
+                    +91 8356885200
+                  </a>
+                </p>
                 <p>
                   Address: 70 Heera Panna Prem Soc, 1st Floor , MHADA Layout, Andheri, Mumbai, Mumbai, Maharashtra,
                   India, 400053

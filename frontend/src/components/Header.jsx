@@ -129,15 +129,17 @@ const Header = () => {
           {/* Logo */}
           <NavLink
             to="/"
-            className="flex items-center gap-2.5 group"
+            className="flex items-center gap-1.5 group"
             onClick={() => {
               setMobileOpen(false);
               window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
             }}
           >
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-brown-800 to-brown-900 text-white flex items-center justify-center shadow-sm group-hover:from-brown-700 group-hover:to-brown-800 transition-all duration-200">
-              <span className="font-heading font-black text-lg text-brown-100 tracking-wider">O</span>
-            </div>
+            <img
+              src="/70f4061b-c1e8-4815-95db-8e8906944dfc-removebg-preview.png"
+              alt="Orvanta Logo"
+              className="w-8 h-8 sm:w-9 sm:h-9 object-contain group-hover:scale-105 transition-all duration-200"
+            />
             <span className="font-heading font-bold text-xl sm:text-2xl tracking-tight text-brown-900">
               Orvanta
             </span>

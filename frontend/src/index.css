@@ -49,3 +49,12 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

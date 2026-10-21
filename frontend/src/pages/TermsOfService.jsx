@@ -4,7 +4,7 @@ const TermsOfService = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         <div className="bg-white border border-brown-200 rounded-2xl shadow-sm p-6 sm:p-8 md:p-10">
           <h1 className="text-3xl sm:text-4xl font-bold text-brown-900 mb-2">Terms & Conditions</h1>
-          <p className="text-sm text-brown-600 mb-8">Last updated: 24 March 2026</p>
+          <p className="text-sm text-brown-600 mb-8">Last updated: 21 October 2026</p>
 
           <section className="space-y-6 text-brown-800">
             <div>
@@ -105,7 +105,18 @@ const TermsOfService = () => {
                 <p><span className="font-semibold">Brand:</span> Orvanta</p>
                 <p><span className="font-semibold">CIN:</span> U47711MH2026PTC476477</p>
                 <p><span className="font-semibold">GSTIN:</span> 27AAFCO4075P1ZT</p>
-
+                <p>
+                  Email:{" "}
+                  <a className="text-brown-700 hover:text-brown-900 underline" href="mailto:orvantaprivatedlimited@gmail.com">
+                    orvantaprivatedlimited@gmail.com
+                  </a>
+                </p>
+                <p>
+                  Phone:{" "}
+                  <a className="text-brown-700 hover:text-brown-900 underline" href="tel:+918356885200">
+                    +91 8356885200
+                  </a>
+                </p>
                 <p>
                   Address: 70 Heera Panna Prem Soc, 1st Floor , MHADA Layout, Andheri, Mumbai, Mumbai, Maharashtra,
                   India, 400053

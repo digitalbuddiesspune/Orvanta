@@ -29,6 +29,7 @@ import ProductForm from './pages/admin/ProductForm'
 import AdminSignIn from './pages/admin/AdminSignIn'
 import Users from './pages/admin/Users'
 import AdminOrders from './pages/admin/Orders'
+import AdminInvoiceGenerator from './pages/admin/AdminInvoiceGenerator'
 import ProtectedRoute from './components/ProtectedRoute'
 
 
@@ -73,6 +74,7 @@ const router = createBrowserRouter(
               <Route path='categories/:id/edit' element={<CategoryForm />} />
               <Route path='orders' element={<AdminOrders />} />
               <Route path='users' element={<Users />} />
+              <Route path='invoice-generator' element={<AdminInvoiceGenerator />} />
             </Route>
         </Route>
     )
