@@ -1,27 +1,58 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { productAPI, categoryAPI } from '../../utils/api';
+import { productAPI, categoryAPI, orderAPI } from '../../utils/api';
+
+const RECENT_ORDERS_LIMIT = 8;
+
+const statusStyles = (status) => {
+  switch (status) {
+    case 'Delivered':
+      return 'bg-green-50 text-green-700 border-green-200';
+    case 'Shipped':
+      return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'Processing':
+      return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+    case 'Cancelled':
+      return 'bg-red-50 text-red-700 border-red-200';
+    case 'Confirmed':
+      return 'bg-purple-50 text-purple-700 border-purple-200';
+    default:
+      return 'bg-gray-50 text-gray-700 border-gray-200';
+  }
+};
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
     totalProducts: 0,
     totalCategories: 0,
     activeProducts: 0,
+    totalOrders: 0,
     loading: true
   });
+  const [recentOrders, setRecentOrders] = useState([]);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [productsRes, categoriesRes] = await Promise.all([
+        const [allProductsRes, activeProductsRes, categoriesRes, ordersRes] = await Promise.allSettled([
           productAPI.getAllProducts({ limit: 1, all: 'true' }),
-          categoryAPI.getAllCategories()
+          productAPI.getAllProducts({ limit: 1 }),
+          categoryAPI.getAllCategories(),
+          orderAPI.getAllOrdersAdmin(),
         ]);
 
+        const allProducts = allProductsRes.status === 'fulfilled' ? allProductsRes.value : null;
+        const activeProducts = activeProductsRes.status === 'fulfilled' ? activeProductsRes.value : null;
+        const categories = categoriesRes.status === 'fulfilled' ? categoriesRes.value : null;
+        const orders = ordersRes.status === 'fulfilled' ? ordersRes.value : null;
+        const orderList = Array.isArray(orders?.data) ? orders.data : [];
+
+        setRecentOrders(orderList.slice(0, RECENT_ORDERS_LIMIT));
         setStats({
-          totalProducts: productsRes.data?.pagination?.total || 0,
-          totalCategories: categoriesRes.data?.length || 0,
-          activeProducts: productsRes.data?.products?.filter(p => p.isActive)?.length || 0,
+          totalProducts: allProducts?.data?.pagination?.total || 0,
+          totalCategories: Array.isArray(categories?.data) ? categories.data.length : 0,
+          activeProducts: activeProducts?.data?.pagination?.total || 0,
+          totalOrders: orderList.length,
           loading: false
         });
       } catch (error) {
@@ -72,7 +103,7 @@ const Dashboard = () => {
     },
     {
       title: 'Orders',
-      value: 0,
+      value: stats.totalOrders,
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -126,6 +157,78 @@ const Dashboard = () => {
               </div>
             </Link>
           ))}
+        </div>
+
+        {/* Recent Orders */}
+        <div className="bg-white rounded-xl shadow-sm border border-brown-200 overflow-hidden mb-8">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-brown-100">
+            <div>
+              <h2 className="text-xl font-semibold text-brown-900">Recent Orders</h2>
+              <p className="text-sm text-brown-600 mt-0.5">Latest orders placed in your store</p>
+            </div>
+            <Link
+              to="/admin/orders"
+              className="text-sm font-semibold text-brown-800 hover:text-brown-900 hover:underline"
+            >
+              View all
+            </Link>
+          </div>
+
+          {recentOrders.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <svg className="w-12 h-12 text-brown-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              <p className="text-sm font-medium text-brown-800">No orders yet</p>
+              <p className="text-sm text-brown-600 mt-1">New orders will show up here</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-brown-50 border-b border-brown-100">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">Order</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">Customer</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-brown-800 uppercase tracking-wider">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-brown-100">
+                  {recentOrders.map((order) => (
+                    <tr key={order._id} className="hover:bg-brown-50/40 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-brown-900">
+                          #{order.orderNumber || String(order._id).slice(-8).toUpperCase()}
+                        </div>
+                        <div className="text-xs text-brown-600">{order.paymentMethod || '-'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-brown-900">
+                          {order.user?.name || order.shippingAddress?.fullName || '—'}
+                        </div>
+                        <div className="text-xs text-brown-600">{order.user?.email || order.shippingAddress?.phone || ''}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-brown-900">
+                          ₹{Number(order.totalAmount || 0).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-brown-600">{order.items?.length || 0} items</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${statusStyles(order.status)}`}>
+                          {order.status || 'Pending'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-brown-600">
+                        {order.createdAt ? new Date(order.createdAt).toLocaleString() : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Quick Actions */}
