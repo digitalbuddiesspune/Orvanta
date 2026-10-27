@@ -146,6 +146,7 @@ export const getMyOrders = async (req, res) => {
 
     const orders = await Order.find({ user: userId })
       .sort({ createdAt: -1 })
+      .populate("user", "name email phone")
       .populate({
         path: "items.product",
         model: "Product",
@@ -171,11 +172,13 @@ export const getOrderById = async (req, res) => {
     const userId = req.user.userId;
     const { orderId } = req.params;
 
-    const order = await Order.findOne({ _id: orderId, user: userId }).populate({
-      path: "items.product",
-      model: "Product",
-      select: "name slug images price",
-    });
+    const order = await Order.findOne({ _id: orderId, user: userId })
+      .populate("user", "name email phone")
+      .populate({
+        path: "items.product",
+        model: "Product",
+        select: "name slug images price",
+      });
 
     if (!order) {
       return res.status(404).json({

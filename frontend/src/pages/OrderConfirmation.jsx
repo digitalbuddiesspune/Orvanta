@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { orderAPI } from '../utils/api';
 import { isAuthenticated } from '../utils/auth';
+import { useOrderBillDownload } from '../hooks/useOrderBillDownload';
 
 const statusColors = {
   Pending: 'bg-yellow-100 text-yellow-700',
@@ -20,6 +21,7 @@ const OrderConfirmation = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const { downloadBill, downloadingId, invoiceHost } = useOrderBillDownload();
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -212,9 +214,20 @@ const OrderConfirmation = () => {
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            type="button"
+            onClick={() => downloadBill(order)}
+            disabled={downloadingId === order._id}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-brown-800 to-brown-900 text-white rounded-lg hover:from-brown-900 hover:to-brown-900 font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            {downloadingId === order._id ? 'Downloading...' : 'Download Bill'}
+          </button>
           <Link
             to="/orders"
-            className="flex-1 text-center px-6 py-3 bg-gradient-to-r from-brown-800 to-brown-900 text-white rounded-lg hover:from-brown-900 hover:to-brown-900 font-bold shadow-md hover:shadow-lg transition-all"
+            className="flex-1 text-center px-6 py-3 border-2 border-brown-300 text-brown-700 rounded-lg hover:bg-brown-50 font-semibold transition-colors"
           >
             View My Orders
           </Link>
@@ -225,6 +238,7 @@ const OrderConfirmation = () => {
             Continue Shopping
           </Link>
         </div>
+        {invoiceHost}
       </div>
     </div>
   );
